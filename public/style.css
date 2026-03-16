@@ -1,0 +1,63 @@
+:root {
+  --primary-light: #8abdff;
+  --primary: #6d5dfc;
+  --primary-dark: #5b0eeb;
+  --white: #FFFFFF;
+  --greyLight-1: #E4EBF5;
+  --greyLight-2: #c8d0e7;
+  --greyLight-3: #bec8e4;
+  --greyDark: #9baacf;
+  --shadow: .3rem .3rem .6rem var(--greyLight-2), -.2rem -.2rem .5rem var(--white);
+  --inner-shadow: inset .2rem .2rem .5rem var(--greyLight-2), inset -.2rem -.2rem .5rem var(--white);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html { font-size: 62.5%; background: var(--greyLight-1); font-family: 'Poppins', sans-serif; }
+@media screen and (min-width: 900px) { html { font-size: 75%; } }
+
+.container { min-height: 100vh; display: flex; justify-content: center; align-items: center; padding: 2rem; }
+.components { width: 100%; max-width: 80rem; border-radius: 3rem; box-shadow: .8rem .8rem 1.4rem var(--greyLight-2), -.2rem -.2rem 1.8rem var(--white); padding: 4rem; display: flex; flex-wrap: wrap; gap: 4rem; justify-content: space-around; }
+
+/* Секции */
+.chat-section { flex: 1; min-width: 300px; display: flex; flex-direction: column; gap: 2rem; }
+.player-section { flex: 1; min-width: 300px; display: flex; flex-direction: column; align-items: center; gap: 2rem; }
+
+/* Чат */
+.chat-messages { height: 30rem; border-radius: 1rem; box-shadow: var(--inner-shadow); padding: 1.5rem; overflow-y: auto; font-size: 1.4rem; color: var(--greyDark); }
+.chat-msg { margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem; }
+.chat-msg span.name { font-weight: 600; color: var(--primary); }
+.mod-btn { cursor: pointer; color: #ff4757; font-size: 1.2rem; }
+
+/* Элементы UI (из вашего кода) */
+.chip { width: 100%; height: 4rem; border-radius: 1rem; box-shadow: var(--shadow); display: flex; justify-content: space-between; align-items: center; padding: 0 1rem; }
+.chip__icon { color: var(--primary); font-size: 2rem; display: flex;}
+.chip p { font-size: 1.4rem; color: var(--greyDark); font-weight: 600;}
+
+.search__input, .form__input { width: 100%; height: 4rem; border: none; border-radius: 1rem; font-size: 1.4rem; padding-left: 2rem; box-shadow: var(--inner-shadow); background: none; color: var(--greyDark); font-family: inherit; margin-bottom: 1rem;}
+.search { position: relative; width: 100%; display: flex; align-items: center; }
+.search__icon { position: absolute; right: 1.5rem; color: var(--primary); font-size: 2rem; }
+
+.cover-art { width: 15rem; height: 15rem; border-radius: 2rem; box-shadow: var(--shadow); display: flex; justify-content: center; align-items: center; font-size: 5rem; color: var(--primary); }
+.meta-info { font-size: 1.4rem; color: var(--greyDark); text-align: center; line-height: 1.8; }
+.meta-info strong { color: var(--primary); }
+
+.circle { width: 9rem; height: 9rem; border-radius: 50%; display: grid; justify-items: center; align-items: center; position: relative;}
+.circle__btn { width: 6rem; height: 6rem; display: flex; justify-content: center; align-items: center; border-radius: 50%; font-size: 3.2rem; color: var(--primary); z-index: 300; background: var(--greyLight-1); box-shadow: var(--shadow); cursor: pointer; position: absolute; }
+.circle__btn.shadow { box-shadow: var(--inner-shadow); }
+.play, .pause { position: absolute; transition: all .2s; }
+.visibility { opacity: 0; }
+.circle__back-1, .circle__back-2 { width: 6rem; height: 6rem; border-radius: 50%; position: absolute; filter: blur(1px); z-index: 100; box-shadow: .4rem .4rem .8rem var(--greyLight-2), -.4rem -.4rem .8rem var(--white); }
+.circle__back-1 { animation: waves 4s linear infinite; }
+.circle__back-2 { animation: waves 4s linear 2s infinite; }
+.paused { animation-play-state: paused; display: none; }
+
+.btn { width: 100%; height: 4rem; border-radius: 1rem; box-shadow: var(--shadow); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: .3s; }
+.btn__primary { background: var(--primary); color: var(--greyLight-1); }
+.btn__primary:active { box-shadow: var(--inner-shadow); }
+.btn__secondary { color: var(--primary); }
+.btn p { font-size: 1.4rem; font-weight: 600; }
+
+.admin-panel { width: 100%; margin-top: 2rem; padding: 2rem; border-radius: 2rem; box-shadow: var(--inner-shadow); }
+.admin-panel h3 { font-size: 1.6rem; color: var(--primary); text-align: center; margin-bottom: 1.5rem; }
+
+@keyframes waves { 0% { transform: scale(1); opacity: 1; } 50% { opacity: 1; } 100% { transform: scale(2); opacity: 0; } }

@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>СмешРадио</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="https://unpkg.com/peerjs@1.5.0/dist/peerjs.min.js"></script>
+  <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
+  <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <div class="components">
+      
+      <!-- Чат (Левая колонка) -->
+      <div class="chat-section">
+        <div class="chip">
+          <div class="chip__icon"><ion-icon name="chatbubbles"></ion-icon></div>
+          <p>Эфирный чат (<span id="listener-count">0</span>)</p>
+          <div class="chip__close" id="clear-chat-btn" style="display:none;" title="Очистить чат">
+            <ion-icon name="trash"></ion-icon>
+          </div>
+        </div>
+        
+        <div class="chat-messages" id="chat-box"></div>
+        
+        <div class="search chat-input-area">
+          <input type="text" class="search__input" id="chat-input" placeholder="Написать сообщение...">
+          <div class="search__icon" id="send-btn" style="cursor: pointer;">
+            <ion-icon name="send"></ion-icon>
+          </div>
+        </div>
+      </div>
+
+      <!-- Плеер (Правая колонка) -->
+      <div class="player-section">
+        <div class="cover-art">
+          <ion-icon name="musical-notes"></ion-icon>
+        </div>
+        
+        <div class="meta-info">
+          <p><strong>Трек:</strong> <span id="meta-track">Загрузка...</span></p>
+          <p><strong>Ведущий:</strong> <span id="meta-host">Загрузка...</span></p>
+          <p><strong>Сервер:</strong> <span id="meta-server">Загрузка...</span></p>
+          <p><strong>Локация:</strong> <span id="meta-location">Загрузка...</span></p>
+        </div>
+
+        <div class="circle" id="play-btn">
+          <span class="circle__btn">
+            <ion-icon class="pause" name="pause"></ion-icon>
+            <ion-icon class="play visibility" name="play"></ion-icon>
+          </span>
+          <span class="circle__back-1 paused" id="wave1"></span>
+          <span class="circle__back-2 paused" id="wave2"></span>
+        </div>
+        
+        <audio id="audio-player" autoplay></audio>
+
+        <!-- Админ панель (Скрыта по умолчанию) -->
+        <div class="admin-panel" id="admin-panel" style="display: none;">
+          <h3>Панель Ведущего</h3>
+          <div class="btn btn__primary" id="toggle-stream-btn"><p>Начать эфир</p></div>
+          <input type="text" class="form__input" id="input-track" placeholder="Сейчас играет...">
+          <select class="form__input" id="input-server">
+            <option value="Суматоха">Суматоха</option>
+            <option value="Переполох">Переполох</option>
+            <option value="Позитивчик">Позитивчик</option>
+          </select>
+          <input type="text" class="form__input" id="input-location" placeholder="Локация...">
+          <div class="btn btn__secondary" id="update-meta-btn" style="margin-top:10px; height: 3rem;"><p>Обновить</p></div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>
