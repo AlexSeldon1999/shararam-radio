@@ -1,27 +1,24 @@
 const socket = io();
 let userRole = "listener";
-let telegramId = null;
-let banned = false;
-let userName = "Гость";
-let hostPeerId = null;
-let peerAudio = null;
-let peer = null;
+let telegramId = null, userName = "Гость", userAvatar = "";
+let banned = false, hostPeerId = null, isBroadcasting = false, localStream = null, peer = null;
+let hostUser = { name: "Автодиджей", avatar: "" };
 
-// Получение данных Telegram
-if(window.Telegram && Telegram.WebApp && Telegram.WebApp.initData) {
-  Telegram.WebApp.ready();
-  try {
-    let urlParams = new URLSearchParams(Telegram.WebApp.initData);
-    const user = JSON.parse(urlParams.get("user") || "{}");
-    telegramId = user.id;
-    userName = user.first_name || user.last_name || user.username || "Гость";
-  } catch (e) {}
+// Получим initData Telegram
+const tg = Telegram.WebApp;
+tg.ready();
+let urlParams = new URLSearchParams(tg.initData);
+if (urlParams.has("user")) {
+  let u = JSON.parse(urlParams.get("user"));
+  telegramId = u.id;
+  userName = u.first_name ?? u.username ?? "Гость";
+  userAvatar = u.photo_url ?? "https://telegram.org/img/t_logo.svg";
 }
 
-// Проверка роли, статуса, бана
-fetch(`/api/check-role?initData=${Telegram.WebApp.initData || ""}`)
+// Проверка роли+бана и загрузка инфо юзера/аватара
+fetch(`/api/check-role?initData=${tg.initData || ""}`)
   .then(r => r.json())
-  .then(data => {
+  .then((data) => {
     userRole = data.role;
     telegramId = data.telegramId || telegramId;
     if (userRole === "banned") {
@@ -35,41 +32,57 @@ function showBanned() {
   document.getElementById("msg-input").disabled = true;
   document.getElementById("messages-block").insertAdjacentHTML("beforeend",
     `<div class="banned-label">
-      🚫 Вы забанены. Чтение эфира доступно, но чат закрыт.
+      🚫 Вас забанили! Чат закрыт, но эфир можно слушать.
     </div>`
   );
 }
 
-// Подсчёт слушателей
+// Смена темы
+const themeSelect = document.getElementById("theme-select");
+themeSelect.onchange = ()=> {
+  document.body.className = `theme-${themeSelect.value}`;
+};
+themeSelect.value = "lavender";
+document.body.className = "theme-lavender";
+
+// Анимированный заголовок
+function animateTitle() {
+  const el = document.getElementById('main-title');
+  if(!el) return;
+  el.style.filter = `drop-shadow(0 2px 32px #e655ff9a) blur(0.5px)`;
+}
+setInterval(animateTitle, 1000);
+
+// Ловим актуальный PeerJS host-а
+socket.on("host-peer", id=>{ hostPeerId = id; });
+
+// Кол-во слушателей
 socket.on('listeners', cnt => {
   document.getElementById("listeners-block").innerHTML = `👥 ${cnt}`;
 });
 
-// Метаданные эфира (название трека и пр)
+// Метаданные эфира (треки, ведущий, сервер, локация)
 socket.on('meta', meta => {
   document.getElementById("meta-title").textContent = meta.title || "";
   document.getElementById("meta-host").textContent = meta.host || "";
   document.getElementById("meta-server").textContent = meta.server || "";
   document.getElementById("meta-location").textContent = meta.location || "";
+  // Для аватарки ведущего
+  if(meta.hostUser && meta.hostUser.avatar) {
+    document.getElementById("host-avatar").src = meta.hostUser.avatar;
+  } else {
+    document.getElementById("host-avatar").src = "/tg.svg";
+  }
 });
 
-// Переписка
-socket.on("messages", ms => {
-  renderMessages(ms);
-});
-socket.on("chat:message", msg => {
-  addMessage(msg);
-});
-socket.on("chat:delete", id => {
-  deleteMessage(id);
-});
-socket.on("chat:clear", () => {
-  renderMessages([]);
-});
-socket.on("chat:ban", id => {
+// Чат-логика
+socket.on("messages", msgs => renderMessages(msgs));
+socket.on("chat:message", msg => addMessage(msg));
+socket.on("chat:delete", id => deleteMessage(id));
+socket.on("chat:clear", ()=> renderMessages([]));
+socket.on("chat:ban", id=>{
   if(id === telegramId) {
-    banned = true; showBanned();
-    document.getElementById("msg-input").disabled = true;
+    banned=true;showBanned();document.getElementById("msg-input").disabled=true;
   }
 });
 
@@ -80,9 +93,7 @@ document.getElementById("message-form").addEventListener("submit", (e)=>{
   let text = document.getElementById("msg-input").value.trim();
   if(!text) return;
   socket.emit("chat:message", {
-    telegramId: telegramId,
-    name: userName,
-    text
+    telegramId, name: userName, text, avatar: userAvatar
   });
   document.getElementById("msg-input").value = "";
 });
@@ -98,11 +109,13 @@ function addMessage(msg) {
   let row = document.createElement("div");
   row.className = "msg-row";
   row.id = "msg-"+msg.id;
-  row.innerHTML = `<span class="msg-from">${msg.from}</span>
+  row.innerHTML = `
+    <img src="${msg.avatar || "/tg.svg"}" class="msg-avatar" alt="avatar">
+    <span class="msg-from">${msg.from}</span>
     <span class="msg-text">${msg.text}</span>${actions}`;
   msgBlock.append(row);
   msgBlock.scrollTop = msgBlock.scrollHeight;
-  window.banUser = (tid) => socket.emit("chat:ban", {telegramId: tid});
+  window.banUser = (tid) => socket.emit("chat:ban", {telegramId:tid});
   window.deleteMsg = (id) => socket.emit("chat:delete", {id});
 }
 function renderMessages(msgs) {
@@ -110,14 +123,11 @@ function renderMessages(msgs) {
   (msgs || []).forEach(addMessage);
 }
 
-// --- Эфир и WebRTC через PeerJS
+// Эфир через PeerJS
 document.getElementById("play-btn").onclick = async function() {
-  if(this.classList.contains("playing")) {
-    stopAudio();
-    return;
-  }
-  socket.emit("host-peer", {}); // запросить актуальный PeerID
-  socket.once("host-peer", async function (hid) {
+  if(this.classList.contains("playing")) { stopAudio(); return; }
+  socket.emit("host-peer", {});
+  socket.once("host-peer", function(hid) {
     if (!hid) return alert("В эфире никого нет!");
     peer = new Peer();
     peer.on("open", () => {
@@ -142,41 +152,31 @@ function stopAudio() {
   } catch(e) {}
 }
 
-// --- Панель ведущего / модератора
-const serversList = ["Суматоха","Переполох","Позитивчик","Солнечный день"];
-const locationsList = [
-"Пляж Лазурный","Автодром","Ромашковая долина","Сити","Автосалон","Экомаркет",
-"Заводик","Бюро путешествий","Аэрополис","ЦУМ","Кафе","Игролэнд","Египет","Страна Роботов","Джунгли",
-"Мюра","Космодром","Дремучий Лес","Парк аттракционов","Площадь у Больнички","Площадь Перед Диско",
-"Больничка","Школа Магов","Каньон","Главная Площадь","Детский Садик","Смешмаг","Дом Мод","Пиратская Бухта","Морской Порт",
-"Подводный мир","Умная Гора","Заповедник","Волшебный сад","Снежная Гора","КосмоСтанция","Студия Блогеров","Диско"
-];
-
+// --- Панель ведущего / модератора ---
 function renderAdminPanel() {
   const block = document.getElementById("admin-panel");
   if(userRole === "host") {
     block.innerHTML = `
       <form id="host-panel">
         <button id="btn-broadcast">${isBroadcasting ? "Остановить эфир" : "Начать эфир"}</button>
-        <div style="margin:12px 0 7px 0;">
+        <div style="margin:14px 0 8px 0;">
           <input type="text" id="input-track" placeholder="Трек" style="width:90%;margin-bottom:7px;"/>
           <input type="text" id="input-host" placeholder="Ведущий" value="${userName}" style="width:90%;margin-bottom:7px;"/>
-          <select id="select-server">${serversList.map(s=>`<option>${s}</option>`)}</select>
-          <select id="select-location">${locationsList.map(l=>`<option>${l}</option>`)}</select>
-          <input type="text" id="input-location" placeholder="Другое местоположение" style="width:86%;margin-bottom:6px"/>
+          <input type="text" id="input-server" placeholder="Сервер" style="width:90%;margin-bottom:7px;">
+          <input type="text" id="input-location" placeholder="Локация" style="width:90%;">
         </div>
         <button id="btn-update" type="button">Обновить эфир</button>
       </form>`;
     document.getElementById("btn-broadcast").addEventListener("click", startOrStopBroadcast);
     document.getElementById("btn-update").addEventListener("click", () => {
-      let title = document.getElementById("input-track").value||"";
+      let title = document.getElementById("input-track").value || "";
       let host = document.getElementById("input-host").value||userName;
-      let server = document.getElementById("select-server").value;
-      let location = document.getElementById("input-location").value.trim() || document.getElementById("select-location").value;
-      socket.emit("update_meta", {title, host, server, location});
+      let server = document.getElementById("input-server").value;
+      let location = document.getElementById("input-location").value;
+      socket.emit("update_meta", { title, host, server, location, hostUser: {name:host, avatar:userAvatar}});
     });
   } else if(userRole === "moderator") {
-    block.innerHTML = `<button id="btn-clear-chat" style="margin:10px 0;">Очистить чат 💢</button>`;
+    block.innerHTML = `<button id="btn-clear-chat" style="margin:12px 0;">Очистить чат 💢</button>`;
     document.getElementById("btn-clear-chat").onclick = () =>
       socket.emit("chat:clear");
   } else {
@@ -184,24 +184,18 @@ function renderAdminPanel() {
   }
 }
 
-// ВЕДУЩИЙ: ЭФИР (WebRTC)
-let isBroadcasting = false;
-let localStream = null;
+// Ведущий эфирирует
 function startOrStopBroadcast(e) {
   e.preventDefault();
-  if(isBroadcasting) {
-    stopBroadcast();
-    return;
-  }
+  if(isBroadcasting) { stopBroadcast(); return; }
   navigator.mediaDevices.getDisplayMedia({ video: false, audio: true })
     .then(stream=>{
-      localStream = stream;
-      isBroadcasting = true;
+      localStream = stream; isBroadcasting = true;
       document.getElementById("btn-broadcast").textContent = "Остановить эфир";
       peer = new Peer("host-"+telegramId);
       peer.on("open", id=>{
         hostPeerId = id;
-        socket.emit("host-peer", {hostPeerId: id});
+        socket.emit("host-peer", {hostPeerId:id});
       });
       peer.on("call", (call) => {
         call.answer(localStream);
@@ -216,8 +210,6 @@ function stopBroadcast() {
   isBroadcasting = false;
   localStream = null;
   peer?.destroy();
-  // (дополнительно можно сбросить мета/peerId)
 }
 
-// Модератор может банить, удалять сообщения (см. addMessage выше)
 renderAdminPanel();

@@ -3,29 +3,42 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Shararam Radio</title>
+  <title>Радио Шарарама</title>
   <link rel="stylesheet" href="style.css" />
   <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
   <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
 </head>
 <body>
+  <div id="bg-glass"></div>
+  <div id="theme-panel">
+    <label>🎨 Тема:
+      <select id="theme-select">
+        <option value="lavender">Лавандовый</option>
+        <option value="cherry">Вишневый</option>
+        <option value="green">Зеленый</option>
+        <option value="dark">Темная</option>
+        <option value="light">Светлая</option>
+      </select>
+    </label>
+  </div>
+  <h1 id="main-title" class="glass neon">Радио Шарарама</h1>
   <div id="main-container">
-    <!-- Чат -->
-    <div id="chat-column">
-      <header class="chat-header">
+    <div id="chat-column" class="glass">
+      <header>
         <span>💬 Эфирный чат</span>
         <span id="listeners-block">👥 0</span>
       </header>
       <div id="messages-block"></div>
       <form id="message-form">
-        <input type="text" id="msg-input" placeholder="Написать сообщение..." autocomplete="off" maxlength="250"/>
+        <input type="text" id="msg-input" placeholder="Введите сообщение..." autocomplete="off" maxlength="250"/>
         <button type="submit" class="send-btn">⮞</button>
       </form>
     </div>
-    <!-- Радио и статус -->
-    <div id="player-column">
-      <div class="cover-block"><span id="cover-emoji">🎵</span></div>
+    <div id="player-column" class="glass">
+      <div class="cover-block">
+        <img id="host-avatar" src="https://telegram.org/img/t_logo.svg" class="avatar-large" alt="Ведущий">
+      </div>
       <div class="meta-block">
         <div><b>Трек:</b> <span id="meta-title">—</span></div>
         <div><b>Ведущий:</b> <span id="meta-host">—</span></div>

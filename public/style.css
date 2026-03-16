@@ -1,179 +1,321 @@
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&display=swap');
+
 body {
   margin: 0;
   padding: 0;
-  font-family: "Segoe UI", "Arial", sans-serif;
-  background: #e6eefc;
+  font-family: 'Montserrat', Arial, sans-serif;
+  background: #e6eefa;
+  animation: fadein 1s;
+  min-height:100vh;
+}
+
+#bg-glass {
+  position:fixed;
+  top:0;left:0;right:0;bottom:0;
+  background: url('https://images.unsplash.com/photo-1519121781801-dc0b429e3636?auto=format&fit=crop&w=1500&q=80') no-repeat center center fixed, 
+    linear-gradient(135deg,#c1b7f5bb 30%,#fcb7eeaa 100%);
+  background-size: cover;
+  z-index:0;
+  filter: blur(8px) brightness(0.87) saturate(1.1);
+}
+
+@keyframes fadein {
+  from {opacity:0;}
+  to {opacity:1;}
+}
+
+#main-title {
+  margin-top:45px;
+  text-align: center;
+  font-size: 2.6em;
+  font-weight: 800;
+  letter-spacing: 2px;
+  user-select: none;
+  background: linear-gradient(90deg, #bdafff, #fc8ffe, #a5ffd6, #60e3fc, #fc7ab1, #e0afff);
+  background-size: 300% 300%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: gradientmove 5s ease-in-out infinite alternate;
+  filter: drop-shadow(0 3px 18px #fff6);
+}
+@keyframes gradientmove {
+  0% { background-position: 0% 60%;}
+  100% { background-position: 100% 30%;}
+}
+#theme-panel {
+  position:fixed;
+  top:10px;right:40px;z-index:8;
+  background:#fff8;
+  border-radius:12px;
+  padding:7px 18px;
+  font-size:1em;
+  box-shadow: 0 3px 18px #b8afff54;
+  backdrop-filter: blur(8px);
 }
 
 #main-container {
-  margin: 0 auto;
-  margin-top: 40px;
-  max-width: 900px;
-  min-height: 600px;
-  background: #f5f8ff;
-  border-radius: 26px;
-  box-shadow: 0 9px 34px #b4d7f099;
+  margin: 38px auto 0 auto;
+  max-width: 1050px;
+  min-height: 630px;
   display: flex;
-  flex-wrap: wrap;
-  padding: 34px;
-  gap: 40px;
+  gap: 30px;
+  backdrop-filter: blur(6px);
+}
+.glass {
+  background: rgba(255,255,255,0.44);
+  border-radius:22px;
+  box-shadow: 0 12px 36px 0 #af8be325;
+  backdrop-filter: blur(40px) saturate(1.17);
 }
 
-#chat-column, #player-column {
-  flex: 1 1 340px;
-  min-width: 320px;
-  background: #fafdff;
-  border-radius: 18px;
-  box-shadow: 0 2px 16px 0 #badefc30;
-  padding: 18px 24px;
+/* Чат */
+#chat-column {
+  flex: 1.1 1 370px;
+  min-width:330px;
   display: flex;
   flex-direction: column;
-  gap: 15px;
+  padding: 26px 22px 16px 20px;
+  margin-bottom: 15px;
 }
 
-.chat-header {
+#chat-column header {
   font-weight: 700;
-  font-size: 1.2em;
+  font-size: 1.12em;
   display: flex;
   justify-content: space-between;
   align-items: center;
+  margin-bottom: 7px;
 }
-
 #listeners-block {
-  background: #d6ebfa;
+  background: #e2dafe;
   border-radius: 8px;
-  padding: 3px 10px;
-  font-size: 1em;
-  color: #289dc0;
+  padding: 2px 13px;
+  color: #7339c1;
+  font-size: 1.1em;
+  margin-left:15px;
+  box-shadow: 0 2px 10px #dea8e033;
 }
 
 #messages-block {
-  height: 300px;
-  background: #f3f7fb;
-  border-radius: 10px;
-  padding:10px;
+  height: 375px;
+  background: #fafdff66;
+  border-radius: 15px;
+  padding:13px 8px 13px 11px;
+  margin-bottom:12px;
+  margin-top: 0px;
   overflow-y: auto;
-  box-shadow: 0 2px 8px #d8e9fa3c;
   flex-grow:1;
+  box-shadow: 0 4px 14px #efe2ff3c;
+  transition: background 0.3s;
 }
 
 .msg-row {
-  padding: 3px 0;
-  border-bottom: 1px solid #e7f2ff69;
   display: flex;
   align-items: flex-start;
-  gap:5px;
+  gap:10px;
+  padding: 5px 0 2px 0;
+  border-bottom: 1px solid #ebdef969;
+  min-height:54px;
+}
+.msg-avatar {
+  width: 34px;
+  height: 34px;
+  min-width:34px;
+  border-radius:50%;
+  box-shadow: 0 5px 15px #9edbf729;
+  object-fit:cover;
+  border:2.1px solid #da96e880;
+  margin-top:2px;
+  background: #f3f3fa;
 }
 .msg-from {
-  font-weight: 600;
-  color: #4985ea;
-  margin-right: 7px;
+  font-weight: 700;
+  color: #7440b5;
+  margin-right: 6px;
+  margin-top:2px;
+  font-size:1em;
 }
 .msg-text {
   word-break: break-word;
+  font-size: 1.06em;
+  margin-top:3px;
+  color: #444;
 }
 .msg-actions {
   margin-left: auto;
   display: flex;
-  gap: 5px;
+  gap: 7px;
 }
 .msg-btn {
-  background: #eaeff8;
-  color: #329aaa;
+  background: #fbe0ff;
+  color: #ad31bb;
   border:none;
-  border-radius: 5px;
-  font-size: 0.8em;
-  padding: 3px 7px;
+  border-radius: 7px;
+  font-size: 0.96em;
+  padding: 5px 10px;
   cursor:pointer;
+  margin-top:6px;
+  transition: background 0.12s;
+}
+.msg-btn:hover {
+  background: #d67fe3;
+  color:#fff;
 }
 .banned-label {
   color: #fff;
-  background: #db5862;
-  padding: 4px 10px;
-  border-radius: 8px;
-  margin: 8px 0;
+  background: #d95369;
+  padding: 7px 15px;
+  border-radius: 11px;
+  margin: 8px 0 4px 0;
   text-align: center;
-  font-size: 1.08em;
-  font-weight: 500;
+  font-size: 1.05em;
+  font-weight: 600;
 }
 
+/* форма ввода */
 #message-form {
   display: flex;
   gap: 8px;
-  margin-top: 10px;
+  margin-top: 9px;
 }
 #msg-input {
   flex-grow: 1;
-  background: #e7f2fa;
-  border:none;
-  border-radius: 10px;
-  padding: 10px 12px;
+  background: #f9ecffcc;
+  border: 1.4px solid #bab7ff85;
+  border-radius: 13px;
+  padding: 12px 14px;
   font-size: 1em;
+  color: #7631a3;
+  outline: none;
+  box-shadow:0 2px 14px #eab4f740;
 }
 .send-btn {
-  background: #85c1ff;
+  background: #b595f6;
   border: none;
-  border-radius: 10px;
+  border-radius: 12px;
   color: #fff;
-  font-size: 1.2em;
+  font-size: 1.21em;
   cursor: pointer;
-  padding: 0 15px;
+  min-width:50px;
   transition: background 0.1s;
+  box-shadow:0 4px 16px #b87ffc34;
 }
 .send-btn:hover {
-  background: #329aaa;
+  background: #a351d1;
 }
 
 /* Правая колонка */
+#player-column {
+  flex: 1.1 1 370px;
+  min-width:330px;
+  display: flex;
+  flex-direction: column;
+  padding: 21px 19px 16px 18px;
+  margin-bottom: 15px;
+}
 .cover-block {
   text-align: center;
-  background: #dff3ff;
-  border-radius: 22px;
-  padding: 42px 0 32px 0;
-  margin: 0 auto;
-  max-width: 190px;
-  font-size: 4em;
-  margin-bottom: 16px;
+  background: #fbe5ff99;
+  border-radius: 20px;
+  padding: 17px 0 17px 0;
+  margin: 0 auto 13px auto;
+  width: 110px; min-height:110px;
+  display:flex; flex-direction:column;align-items:center;justify-content:center;
+}
+.avatar-large {
+  width: 85px;
+  height: 85px;
+  border-radius: 50%;
+  background: #fff;
+  object-fit:cover;
+  border: 3.8px solid #d184e9bb;
+  box-shadow: 0 10px 22px #bf74fd51;
 }
 .meta-block {
-  font-size: 1.08em;
-  margin-bottom: 18px;
+  font-size: 1.12em;
+  margin-bottom: 20px;
+  padding-left:10px;
+  color: #60397d;
+  line-height:1.42em;
+  word-break: break-word;
 }
 .player-controls {
-  margin: 20px 0 0 0;
+  margin: 24px 0 0 0;
   text-align: center;
 }
 #play-btn {
-  background: linear-gradient(90deg,#8fd6ff,#7bcdf4);
+  background: linear-gradient(90deg,#bbd6fb,#fbacdb 65%,#fff0);
   border:none;
-  border-radius:12px;
-  font-size: 1.07em;
-  padding: 14px 30px;
-  color: #fff;
+  border-radius:13px;
+  font-size: 1.19em;
+  padding: 13px 36px;
+  color: #7751a8;
   cursor: pointer;
-  box-shadow:0 3px 12px #63bce245;
-  margin-bottom:10px;
-  transition: background 0.14s;
+  box-shadow:0 7px 22px #9edbf729;
+  margin-bottom:13px;
+  transition: background 0.14s, color 0.14s;
+  font-weight: 740;
 }
 #play-btn.playing {
-  background: #e7773c;
+  background: #c02266;
+  color:#fff;
 }
 #admin-panel {
-  margin-top: 32px;
+  margin-top: 30px;
 }
 
 @media(max-width:900px) {
   #main-container {
     flex-direction: column;
-    max-width: 97vw;
-    padding: 16px;
-    margin-top: 20px;
+    max-width: 99vw;
+    padding: 9px;
+    margin-top: 15px;
   }
   #chat-column, #player-column {
     min-width: 0;
   }
   .cover-block {
-    max-width: 100px;
-    font-size: 2em;
+    max-width: 80px;
+    font-size: 1.1em;
   }
+}
+
+#admin-panel form, #admin-panel button, #admin-panel input, #admin-panel select {
+  font-family: 'Montserrat', Arial, sans-serif;
+}
+
+/* Темы */
+body.theme-lavender {
+  --accent1: #d8ccff;
+  --accent2: #eebafa;
+  --accent3: #b1a3fc;
+  --neon: #e38aff;
+}
+body.theme-cherry {
+  --accent1: #ffd6e5;
+  --accent2: #ff78b7;
+  --accent3: #f4147b;
+  --neon: #ff5eae;
+}
+body.theme-dark {
+  --accent1: #26263a;
+  --accent2: #363660;
+  --accent3: #5a5a7a;
+  --neon: #56e0ff;
+  background: #26263a !important;
+}
+body.theme-light {
+  --accent1: #f5f4ff;
+  --accent2: #e5e9f7;
+  --accent3: #dadfff;
+  --neon: #44aae6;
+}
+body.theme-green {
+  --accent1: #dbffe0;
+  --accent2: #52ebb6;
+  --accent3: #37a672;
+  --neon: #6fecb8;
+}
+body {
+  transition: background 0.6s;
 }
