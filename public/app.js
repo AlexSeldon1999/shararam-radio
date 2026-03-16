@@ -1,219 +1,223 @@
-const tg = window.Telegram.WebApp;
-tg.expand();
-
 const socket = io();
+let userRole = "listener";
+let telegramId = null;
+let banned = false;
+let userName = "Гость";
+let hostPeerId = null;
+let peerAudio = null;
 let peer = null;
-let currentRole = 'listener';
-let hostStreamingPeerId = null;
+
+// Получение данных Telegram
+if(window.Telegram && Telegram.WebApp && Telegram.WebApp.initData) {
+  Telegram.WebApp.ready();
+  try {
+    let urlParams = new URLSearchParams(Telegram.WebApp.initData);
+    const user = JSON.parse(urlParams.get("user") || "{}");
+    telegramId = user.id;
+    userName = user.first_name || user.last_name || user.username || "Гость";
+  } catch (e) {}
+}
+
+// Проверка роли, статуса, бана
+fetch(`/api/check-role?initData=${Telegram.WebApp.initData || ""}`)
+  .then(r => r.json())
+  .then(data => {
+    userRole = data.role;
+    telegramId = data.telegramId || telegramId;
+    if (userRole === "banned") {
+      banned = true;
+      showBanned();
+    }
+    renderAdminPanel();
+  });
+
+function showBanned() {
+  document.getElementById("msg-input").disabled = true;
+  document.getElementById("messages-block").insertAdjacentHTML("beforeend",
+    `<div class="banned-label">
+      🚫 Вы забанены. Чтение эфира доступно, но чат закрыт.
+    </div>`
+  );
+}
+
+// Подсчёт слушателей
+socket.on('listeners', cnt => {
+  document.getElementById("listeners-block").innerHTML = `👥 ${cnt}`;
+});
+
+// Метаданные эфира (название трека и пр)
+socket.on('meta', meta => {
+  document.getElementById("meta-title").textContent = meta.title || "";
+  document.getElementById("meta-host").textContent = meta.host || "";
+  document.getElementById("meta-server").textContent = meta.server || "";
+  document.getElementById("meta-location").textContent = meta.location || "";
+});
+
+// Переписка
+socket.on("messages", ms => {
+  renderMessages(ms);
+});
+socket.on("chat:message", msg => {
+  addMessage(msg);
+});
+socket.on("chat:delete", id => {
+  deleteMessage(id);
+});
+socket.on("chat:clear", () => {
+  renderMessages([]);
+});
+socket.on("chat:ban", id => {
+  if(id === telegramId) {
+    banned = true; showBanned();
+    document.getElementById("msg-input").disabled = true;
+  }
+});
+
+// Отправка сообщения
+document.getElementById("message-form").addEventListener("submit", (e)=>{
+  e.preventDefault();
+  if (banned) return;
+  let text = document.getElementById("msg-input").value.trim();
+  if(!text) return;
+  socket.emit("chat:message", {
+    telegramId: telegramId,
+    name: userName,
+    text
+  });
+  document.getElementById("msg-input").value = "";
+});
+function addMessage(msg) {
+  const msgBlock = document.getElementById("messages-block");
+  let actions = "";
+  if(["host","moderator"].includes(userRole)) {
+    actions = `<span class="msg-actions">
+      <button class="msg-btn" onclick="banUser(${msg.telegramId})">Ban</button>
+      <button class="msg-btn" onclick="deleteMsg('${msg.id}')">✖</button>
+    </span>`;
+  }
+  let row = document.createElement("div");
+  row.className = "msg-row";
+  row.id = "msg-"+msg.id;
+  row.innerHTML = `<span class="msg-from">${msg.from}</span>
+    <span class="msg-text">${msg.text}</span>${actions}`;
+  msgBlock.append(row);
+  msgBlock.scrollTop = msgBlock.scrollHeight;
+  window.banUser = (tid) => socket.emit("chat:ban", {telegramId: tid});
+  window.deleteMsg = (id) => socket.emit("chat:delete", {id});
+}
+function renderMessages(msgs) {
+  document.getElementById("messages-block").innerHTML = "";
+  (msgs || []).forEach(addMessage);
+}
+
+// --- Эфир и WebRTC через PeerJS
+document.getElementById("play-btn").onclick = async function() {
+  if(this.classList.contains("playing")) {
+    stopAudio();
+    return;
+  }
+  socket.emit("host-peer", {}); // запросить актуальный PeerID
+  socket.once("host-peer", async function (hid) {
+    if (!hid) return alert("В эфире никого нет!");
+    peer = new Peer();
+    peer.on("open", () => {
+      const call = peer.call(hid, null);
+      call.on("stream", function (stream) {
+        document.getElementById("radio-audio").srcObject = stream;
+        document.getElementById("radio-audio").play();
+        document.getElementById("play-btn").classList.add("playing");
+        document.getElementById("play-btn").innerHTML = "Стоп ⏹";
+      });
+      call.on("close", stopAudio);
+    });
+  });
+};
+function stopAudio() {
+  try {
+    document.getElementById("radio-audio").pause();
+    document.getElementById("radio-audio").srcObject = null;
+    document.getElementById("play-btn").classList.remove("playing");
+    document.getElementById("play-btn").innerHTML = "Слушать эфир ▶️";
+    peer?.destroy();
+  } catch(e) {}
+}
+
+// --- Панель ведущего / модератора
+const serversList = ["Суматоха","Переполох","Позитивчик","Солнечный день"];
+const locationsList = [
+"Пляж Лазурный","Автодром","Ромашковая долина","Сити","Автосалон","Экомаркет",
+"Заводик","Бюро путешествий","Аэрополис","ЦУМ","Кафе","Игролэнд","Египет","Страна Роботов","Джунгли",
+"Мюра","Космодром","Дремучий Лес","Парк аттракционов","Площадь у Больнички","Площадь Перед Диско",
+"Больничка","Школа Магов","Каньон","Главная Площадь","Детский Садик","Смешмаг","Дом Мод","Пиратская Бухта","Морской Порт",
+"Подводный мир","Умная Гора","Заповедник","Волшебный сад","Снежная Гора","КосмоСтанция","Студия Блогеров","Диско"
+];
+
+function renderAdminPanel() {
+  const block = document.getElementById("admin-panel");
+  if(userRole === "host") {
+    block.innerHTML = `
+      <form id="host-panel">
+        <button id="btn-broadcast">${isBroadcasting ? "Остановить эфир" : "Начать эфир"}</button>
+        <div style="margin:12px 0 7px 0;">
+          <input type="text" id="input-track" placeholder="Трек" style="width:90%;margin-bottom:7px;"/>
+          <input type="text" id="input-host" placeholder="Ведущий" value="${userName}" style="width:90%;margin-bottom:7px;"/>
+          <select id="select-server">${serversList.map(s=>`<option>${s}</option>`)}</select>
+          <select id="select-location">${locationsList.map(l=>`<option>${l}</option>`)}</select>
+          <input type="text" id="input-location" placeholder="Другое местоположение" style="width:86%;margin-bottom:6px"/>
+        </div>
+        <button id="btn-update" type="button">Обновить эфир</button>
+      </form>`;
+    document.getElementById("btn-broadcast").addEventListener("click", startOrStopBroadcast);
+    document.getElementById("btn-update").addEventListener("click", () => {
+      let title = document.getElementById("input-track").value||"";
+      let host = document.getElementById("input-host").value||userName;
+      let server = document.getElementById("select-server").value;
+      let location = document.getElementById("input-location").value.trim() || document.getElementById("select-location").value;
+      socket.emit("update_meta", {title, host, server, location});
+    });
+  } else if(userRole === "moderator") {
+    block.innerHTML = `<button id="btn-clear-chat" style="margin:10px 0;">Очистить чат 💢</button>`;
+    document.getElementById("btn-clear-chat").onclick = () =>
+      socket.emit("chat:clear");
+  } else {
+    block.innerHTML = "";
+  }
+}
+
+// ВЕДУЩИЙ: ЭФИР (WebRTC)
+let isBroadcasting = false;
 let localStream = null;
-let currentCall = null;
-
-// Данные пользователя Telegram
-const user = tg.initDataUnsafe?.user || { id: 12345, first_name: 'Слушатель (Тест)' };
-
-// DOM Элементы
-const chatBox = document.getElementById('chat-box');
-const chatInput = document.getElementById('chat-input');
-const sendBtn = document.getElementById('send-btn');
-const playBtn = document.getElementById('play-btn');
-const audioPlayer = document.getElementById('audio-player');
-const toggleStreamBtn = document.getElementById('toggle-stream-btn');
-const adminPanel = document.getElementById('admin-panel');
-
-// Анимация кнопки
-const playIcon = document.querySelector('.play');
-const pauseIcon = document.querySelector('.pause');
-const circleBtn = document.querySelector('.circle__btn');
-const wave1 = document.getElementById('wave1');
-const wave2 = document.getElementById('wave2');
-
-let isPlaying = false;
-
-// Инициализация
-async function initApp() {
-  const res = await fetch('/api/check-role', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ telegramId: user.id })
-  });
-  const data = await res.json();
-  currentRole = data.role;
-  
-  if (data.isBanned) {
-    chatInput.disabled = true;
-    chatInput.placeholder = 'Вы забанены в чате';
+function startOrStopBroadcast(e) {
+  e.preventDefault();
+  if(isBroadcasting) {
+    stopBroadcast();
+    return;
   }
-
-  if (currentRole === 'host') {
-    adminPanel.style.display = 'block';
-    document.getElementById('clear-chat-btn').style.display = 'flex';
-  }
-  if (currentRole === 'moderator') {
-    document.getElementById('clear-chat-btn').style.display = 'flex';
-  }
-
-  updateMetaUI(data.streamState);
-  initPeer();
+  navigator.mediaDevices.getDisplayMedia({ video: false, audio: true })
+    .then(stream=>{
+      localStream = stream;
+      isBroadcasting = true;
+      document.getElementById("btn-broadcast").textContent = "Остановить эфир";
+      peer = new Peer("host-"+telegramId);
+      peer.on("open", id=>{
+        hostPeerId = id;
+        socket.emit("host-peer", {hostPeerId: id});
+      });
+      peer.on("call", (call) => {
+        call.answer(localStream);
+        call.on('close', stopBroadcast);
+      });
+    }).catch(()=>{alert("Нет доступа к микрофону/звуку!");});
+}
+function stopBroadcast() {
+  if(!localStream) return;
+  localStream.getTracks().forEach(tr=>tr.stop());
+  document.getElementById("btn-broadcast").textContent = "Начать эфир";
+  isBroadcasting = false;
+  localStream = null;
+  peer?.destroy();
+  // (дополнительно можно сбросить мета/peerId)
 }
 
-// Инициализация WebRTC (PeerJS)
-function initPeer() {
-  peer = new Peer();
-  peer.on('open', (id) => {
-    console.log('Мой Peer ID:', id);
-  });
-
-  // Если мы ведущий, отвечаем на звонки слушателей
-  peer.on('call', (call) => {
-    if (currentRole === 'host' && localStream) {
-      call.answer(localStream);
-    }
-  });
-}
-
-// Слушатель: подключение к потоку
-function startListening() {
-  if (!hostStreamingPeerId) {
-    tg.showAlert('Эфир пока не начался!');
-    return false;
-  }
-  currentCall = peer.call(hostStreamingPeerId, null);
-  currentCall.on('stream', (stream) => {
-    audioPlayer.srcObject = stream;
-    audioPlayer.play();
-  });
-  return true;
-}
-
-function stopListening() {
-  audioPlayer.srcObject = null;
-  if (currentCall) currentCall.close();
-}
-
-// Ведущий: Начать эфир (захват вкладки)
-toggleStreamBtn.addEventListener('click', async () => {
-  if (localStream) {
-    // Остановка
-    localStream.getTracks().forEach(track => track.stop());
-    localStream = null;
-    socket.emit('host_stopped');
-    toggleStreamBtn.querySelector('p').innerText = 'Начать эфир';
-  } else {
-    // Запуск
-    try {
-      localStream = await navigator.mediaDevices.getDisplayMedia({ video: false, audio: true });
-      socket.emit('host_started', peer.id);
-      toggleStreamBtn.querySelector('p').innerText = 'Остановить эфир';
-      
-      localStream.getTracks()[0].onended = () => {
-        localStream = null;
-        socket.emit('host_stopped');
-        toggleStreamBtn.querySelector('p').innerText = 'Начать эфир';
-      };
-    } catch (err) {
-      tg.showAlert('Ошибка захвата звука: ' + err.message);
-    }
-  }
-});
-
-// Управление кнопкой Play
-playBtn.addEventListener('click', (e) => {
-  if (!isPlaying) {
-    if (startListening()) togglePlayUI(true);
-  } else {
-    stopListening();
-    togglePlayUI(false);
-  }
-});
-
-function togglePlayUI(play) {
-  isPlaying = play;
-  if(play) {
-    playIcon.classList.add('visibility');
-    pauseIcon.classList.remove('visibility');
-    circleBtn.classList.add('shadow');
-    wave1.classList.remove('paused');
-    wave2.classList.remove('paused');
-    wave1.style.display = 'block'; wave2.style.display = 'block';
-  } else {
-    playIcon.classList.remove('visibility');
-    pauseIcon.classList.add('visibility');
-    circleBtn.classList.remove('shadow');
-    wave1.style.display = 'none'; wave2.style.display = 'none';
-  }
-}
-
-// Сокеты: Обновления метаданных
-socket.on('update_meta', (meta) => {
-  hostStreamingPeerId = meta.hostPeerId;
-  updateMetaUI(meta);
-  if (!hostStreamingPeerId && isPlaying) {
-    stopListening();
-    togglePlayUI(false);
-    tg.showAlert('Эфир завершен ведущим.');
-  }
-});
-
-function updateMetaUI(meta) {
-  document.getElementById('meta-track').innerText = meta.track;
-  document.getElementById('meta-host').innerText = meta.hostName;
-  document.getElementById('meta-server').innerText = meta.serverName;
-  document.getElementById('meta-location').innerText = meta.location;
-}
-
-// Ведущий: Отправка метаданных
-document.getElementById('update-meta-btn')?.addEventListener('click', () => {
-  const track = document.getElementById('input-track').value || 'Неизвестно';
-  const serverName = document.getElementById('input-server').value;
-  const location = document.getElementById('input-location').value || 'Где-то';
-  socket.emit('update_meta', { track, hostName: user.first_name, serverName, location });
-});
-
-// Сокеты: Чат
-socket.on('listeners_count', count => document.getElementById('listener-count').innerText = count);
-
-socket.on('new_message', (msg) => {
-  const div = document.createElement('div');
-  div.className = 'chat-msg';
-  div.id = `msg-${msg.id}`;
-  
-  let modTools = '';
-  if (currentRole === 'moderator' || currentRole === 'host') {
-    modTools = `
-      <ion-icon name="close-circle" class="mod-btn" onclick="deleteMsg(${msg.id})"></ion-icon>
-      <ion-icon name="hammer" class="mod-btn" onclick="banUser(${msg.telegramId})"></ion-icon>
-    `;
-  }
-
-  div.innerHTML = `[${msg.time}] <span class="name">${msg.name}:</span> ${msg.text} ${modTools}`;
-  chatBox.appendChild(div);
-  chatBox.scrollTop = chatBox.scrollHeight;
-});
-
-socket.on('message_deleted', (msgId) => {
-  const msgEl = document.getElementById(`msg-${msgId}`);
-  if (msgEl) msgEl.remove();
-});
-
-socket.on('chat_cleared', () => { chatBox.innerHTML = ''; });
-socket.on('chat_error', (err) => { tg.showAlert(err); });
-
-// Отправка сообщений
-sendBtn.addEventListener('click', sendMessage);
-chatInput.addEventListener('keypress', (e) => { if(e.key === 'Enter') sendMessage() });
-
-function sendMessage() {
-  const text = chatInput.value.trim();
-  if (!text || chatInput.disabled) return;
-  socket.emit('send_message', { telegramId: user.id, name: user.first_name, text });
-  chatInput.value = '';
-}
-
-// Функции модерации (глобальные для onclick)
-window.deleteMsg = (id) => socket.emit('delete_message', id);
-window.banUser = (id) => { if(confirm('Забанить пользователя?')) socket.emit('ban_user', id); };
-document.getElementById('clear-chat-btn').addEventListener('click', () => {
-  if(confirm('Очистить весь чат?')) socket.emit('clear_chat');
-});
-
-initApp();
+// Модератор может банить, удалять сообщения (см. addMessage выше)
+renderAdminPanel();

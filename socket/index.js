@@ -1,56 +1,72 @@
-const BannedUser = require('../models/BannedUser');
+const BannedUser = require("../models/BannedUser");
+const UserRole = require("../models/UserRole");
 
-module.exports = function (io, streamState) {
-  let listenersCount = 0;
+let listeners = 0;
+let messages = [];
+let streamMeta = {
+  title: 'Музыкальная пауза',
+  host: 'Автодиджей',
+  server: 'Суматоха',
+  location: 'Главная Площадь'
+};
 
-  io.on('connection', (socket) => {
-    listenersCount++;
-    io.emit('listeners_count', listenersCount);
-    socket.emit('update_meta', streamState);
+module.exports = function(io) {
+  io.on('connection', async (socket) => {
+    listeners++;
+    io.emit('listeners', listeners);
 
-    // Чат: новое сообщение
-    socket.on('send_message', async (data) => {
-      const { telegramId, name, text } = data;
-      const isBanned = await BannedUser.exists({ telegramId });
-      if (isBanned) return socket.emit('chat_error', 'Вы забанены в чате.');
-      
-      const message = { id: Date.now(), telegramId, name, text, time: new Date().toLocaleTimeString() };
-      io.emit('new_message', message);
+    socket.emit("meta", streamMeta);
+    socket.emit("messages", messages);
+
+    // Новое сообщение
+    socket.on("chat:message", async (data) => {
+      const { telegramId, text, name } = data;
+      if (await BannedUser.findOne({ telegramId })) return;
+
+      const msg = {
+        id: Date.now().toString() + Math.floor(Math.random()*1000), // уникальный id
+        from: name || "Гость",
+        text,
+        telegramId
+      };
+      messages.push(msg);
+      io.emit("chat:message", msg);
     });
 
-    // Модерация: удаление и бан
-    socket.on('delete_message', (msgId) => {
-      io.emit('message_deleted', msgId);
+    // Бан юзера
+    socket.on("chat:ban", async ({ telegramId }) => {
+      await BannedUser.updateOne({ telegramId }, { telegramId }, { upsert: true });
+      io.emit("chat:ban", telegramId);
     });
 
-    socket.on('ban_user', async (telegramId) => {
-      await BannedUser.findOneAndUpdate({ telegramId }, { telegramId }, { upsert: true });
-      io.emit('user_banned', telegramId);
+    // Удаление сообщения
+    socket.on("chat:delete", ({ id }) => {
+      messages = messages.filter(m => m.id !== id);
+      io.emit("chat:delete", id);
     });
 
-    socket.on('clear_chat', () => {
-      io.emit('chat_cleared');
+    // Очистить чат (только для модератора/ведущего)
+    socket.on("chat:clear", () => {
+      messages = [];
+      io.emit("chat:clear");
     });
 
-    // Ведущий: управление потоком и метаданными
-    socket.on('host_started', (peerId) => {
-      streamState.hostPeerId = peerId;
-      io.emit('update_meta', streamState);
+    // Метаданные эфира
+    socket.on("update_meta", (meta) => {
+      Object.assign(streamMeta, meta);
+      io.emit("meta", streamMeta);
     });
 
-    socket.on('host_stopped', () => {
-      streamState.hostPeerId = null;
-      io.emit('update_meta', streamState);
-    });
-
-    socket.on('update_meta', (newMeta) => {
-      Object.assign(streamState, newMeta);
-      io.emit('update_meta', streamState);
+    // Ведущий обьявляет свой PeerId (для WebRTC аудио)
+    socket.on("host-peer", ({hostPeerId}) => {
+      // Бэкенд отдаёт этот hostPeerId всем слушателям
+      io.emit("host-peer", hostPeerId);
     });
 
     socket.on('disconnect', () => {
-      listenersCount--;
-      io.emit('listeners_count', listenersCount);
+      listeners--;
+      if (listeners < 0) listeners = 0;
+      io.emit('listeners', listeners);
     });
   });
 };
